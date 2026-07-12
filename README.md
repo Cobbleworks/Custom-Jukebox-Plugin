@@ -14,9 +14,6 @@ server's `plugins/` directory. Songs go under
 `plugins/CustomJukebox/songs/`; subfolders appear as navigable chests in the
 song picker.
 
-This release targets Paper, not Folia. NoteBlockAPI 1.7.0 does not use Folia's
-region scheduler, so `folia-supported` is deliberately false.
-
 ## Sign setup
 
 Write `[jukebox]` on line 1. The picker opens one tick after the edit closes;
