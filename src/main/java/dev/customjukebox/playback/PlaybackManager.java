@@ -119,6 +119,10 @@ public final class PlaybackManager {
         return playback != null && playback.paused;
     }
 
+    public boolean isPersonalActive(UUID player) {
+        return active.containsKey(personalKey(player));
+    }
+
     public void stopPersonal(UUID player) {
         stop(personalKey(player));
         PersonalState state = personal.get(player);

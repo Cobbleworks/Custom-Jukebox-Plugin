@@ -11,17 +11,17 @@ mvn clean package
 
 Install `target/custom-jukebox-1.0.0.jar` and `NoteBlockAPI-1.7.0.jar` in the
 server's `plugins/` directory. Songs go under
-`plugins/CustomJukebox/songs/`; subfolders are supported.
+`plugins/CustomJukebox/songs/`; subfolders appear as navigable chests in the
+song picker.
 
 This release targets Paper, not Folia. NoteBlockAPI 1.7.0 does not use Folia's
 region scheduler, so `folia-supported` is deliberately false.
 
 ## Sign setup
 
-Write `[jukebox]` on line 1, an optional volume (`0`–`10`, default `3`) on
-line 2, and optional `true`/`false` loop state on line 3. The picker opens one
-tick after the edit closes. Right-click a configured sign for its GUI; sneak-
-right-click uses vanilla text editing and re-applies lines 2/3 afterward.
+Write `[jukebox]` on line 1. The picker opens one tick after the edit closes;
+volume and looping are configured there. Right-click a configured sign for its
+GUI, or sneak-right-click to use vanilla text editing.
 
 Redstone modes are `Toggle` (play while powered), `Pulse` (rising edge starts),
 and `Ignore` (GUI only). Sign configuration is stored on the sign PDC; an

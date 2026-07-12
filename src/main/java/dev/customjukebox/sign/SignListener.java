@@ -38,32 +38,11 @@ public final class SignListener implements Listener {
             return;
         }
 
-        String volumeText = PLAIN.serialize(event.line(1)).trim();
-        int volume = plugin.settings().defaultVolume();
-        if (!volumeText.isEmpty()) {
-            try {
-                int typed = Integer.parseInt(volumeText);
-                volume = plugin.settings().clampVolume(typed);
-                if (typed != volume) event.getPlayer().sendMessage("Jukebox volume was clamped to " + volume + ".");
-            } catch (NumberFormatException exception) {
-                event.getPlayer().sendMessage("Invalid jukebox volume; using " + volume + ".");
-            }
-        }
-
-        String loopText = PLAIN.serialize(event.line(2)).trim();
-        boolean loop = false;
-        if (!loopText.isEmpty()) {
-            if (loopText.equalsIgnoreCase("true")) loop = true;
-            else if (!loopText.equalsIgnoreCase("false")) {
-                event.getPlayer().sendMessage("Invalid loop value; using false.");
-            }
-        }
         SignConfig previous = plugin.signs().read(sign).orElse(
-                new SignConfig("", volume, loop, RedstoneMode.IGNORE));
-        SignConfig applied = new SignConfig(previous.songId(), volume, loop, previous.redstoneMode());
+                new SignConfig("", plugin.settings().defaultVolume(), false, RedstoneMode.IGNORE));
         plugin.getServer().getScheduler().runTask(plugin, () -> {
             if (!(event.getBlock().getState() instanceof Sign current)) return;
-            plugin.signs().write(current, applied, true);
+            plugin.signs().write(current, previous, true);
             plugin.guis().openSign(event.getPlayer(), current);
         });
     }
@@ -73,8 +52,7 @@ public final class SignListener implements Listener {
         if (event.getHand() != EquipmentSlot.HAND || event.getClickedBlock() == null) return;
         if (!(event.getClickedBlock().getState() instanceof Sign sign)) return;
         if (plugin.signs().read(sign).isEmpty()) return;
-        // Sneak-interact keeps vanilla sign editing available; the resulting
-        // SignChangeEvent re-parses volume/loop without clearing the song.
+        // Sneak-interact keeps vanilla sign editing available.
         if (event.getPlayer().isSneaking()) return;
         event.setCancelled(true);
         if (!event.getPlayer().hasPermission("customjukebox.sign.place")) {

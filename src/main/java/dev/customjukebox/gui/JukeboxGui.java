@@ -21,11 +21,16 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 public final class JukeboxGui implements Listener {
     private static final int PAGE_SIZE = 45;
+    private static final List<Material> MUSIC_DISCS = Arrays.stream(Material.values())
+            .filter(material -> material.name().startsWith("MUSIC_DISC_"))
+            .sorted(Comparator.comparing(Enum::name))
+            .toList();
     private final CustomJukeboxPlugin plugin;
 
     public JukeboxGui(CustomJukeboxPlugin plugin) { this.plugin = plugin; }
@@ -65,9 +70,8 @@ public final class JukeboxGui implements Listener {
         private Inventory inventory;
         private SignConfig draft;
         private int page;
-        private boolean folders;
-        private List<SongMetadata> visibleSongs = List.of();
-        private List<String> visibleFolders = List.of();
+        private String currentFolder = "";
+        private List<BrowserEntry> visibleEntries = List.of();
 
         private Session(Player player, Mode mode, Location signLocation, SignConfig draft) {
             this.player = player; this.mode = mode; this.signLocation = signLocation; this.draft = draft;
@@ -77,36 +81,33 @@ public final class JukeboxGui implements Listener {
 
         private void render() {
             inventory.clear();
-            if (folders) renderFolders(); else renderSongs();
-            inventory.setItem(45, item(Material.ARROW, "Previous page"));
+            renderBrowser();
+            inventory.setItem(45, item(Material.ARROW,
+                    page > 0 ? "Previous page" : currentFolder.isEmpty() ? "No parent folder" : "Back to parent folder"));
             inventory.setItem(53, item(Material.ARROW, "Next page"));
             if (mode == Mode.SIGN) renderSignControls(); else renderPersonalControls();
         }
 
-        private void renderSongs() {
-            List<SongMetadata> all = new ArrayList<>(plugin.library().all());
+        private void renderBrowser() {
+            List<BrowserEntry> all = new ArrayList<>();
+            plugin.library().childFolders(currentFolder).stream()
+                    .map(FolderEntry::new)
+                    .forEach(all::add);
+            plugin.library().directFolder(currentFolder).stream()
+                    .map(SongEntry::new)
+                    .forEach(all::add);
             int from = Math.min(page * PAGE_SIZE, all.size());
             int to = Math.min(from + PAGE_SIZE, all.size());
-            visibleSongs = all.subList(from, to);
-            visibleFolders = List.of();
-            for (int i = 0; i < visibleSongs.size(); i++) {
-                SongMetadata song = visibleSongs.get(i);
-                boolean selected = mode == Mode.SIGN && song.id().equalsIgnoreCase(draft.songId());
-                inventory.setItem(i, songItem(song, selected));
-            }
-        }
-
-        private void renderFolders() {
-            List<String> all = plugin.library().folders();
-            int from = Math.min(page * PAGE_SIZE, all.size());
-            int to = Math.min(from + PAGE_SIZE, all.size());
-            visibleFolders = all.subList(from, to);
-            visibleSongs = List.of();
-            for (int i = 0; i < visibleFolders.size(); i++) {
-                String folder = visibleFolders.get(i);
-                String label = folder.isEmpty() ? "(songs root)" : folder;
-                inventory.setItem(i, item(Material.CHEST, label,
-                        plugin.library().directFolder(folder).size() + " direct songs"));
+            visibleEntries = all.subList(from, to);
+            for (int i = 0; i < visibleEntries.size(); i++) {
+                BrowserEntry entry = visibleEntries.get(i);
+                if (entry instanceof FolderEntry folder) {
+                    inventory.setItem(i, item(Material.CHEST, folderName(folder.path()), "Open folder"));
+                } else if (entry instanceof SongEntry songEntry) {
+                    SongMetadata song = songEntry.song();
+                    boolean selected = mode == Mode.SIGN && song.id().equalsIgnoreCase(draft.songId());
+                    inventory.setItem(i, songItem(song, selected));
+                }
             }
         }
 
@@ -125,10 +126,12 @@ public final class JukeboxGui implements Listener {
         }
 
         private void renderPersonalControls() {
-            inventory.setItem(46, item(Material.NOTE_BLOCK, "Songs"));
-            inventory.setItem(47, item(Material.CHEST, "Queue a folder", "Direct contents only"));
-            inventory.setItem(48, item(Material.REPEATER,
-                    plugin.playback().isPaused(player.getUniqueId()) ? "Resume" : "Pause"));
+            inventory.setItem(46, item(Material.NOTE_BLOCK, "Songs root"));
+            inventory.setItem(47, item(Material.CHEST, "Queue this folder", "Direct contents only"));
+            boolean paused = plugin.playback().isPaused(player.getUniqueId());
+            boolean playing = plugin.playback().isPersonalActive(player.getUniqueId());
+            inventory.setItem(48, item(paused ? Material.LIME_DYE : playing ? Material.YELLOW_DYE : Material.GRAY_DYE,
+                    paused ? "Resume" : "Pause", playing ? "Playback active" : "No song playing"));
             inventory.setItem(49, item(Material.BARRIER, "Stop"));
             inventory.setItem(50, item(Material.ARROW, "Skip"));
             inventory.setItem(51, item(plugin.playback().personalLoop(player.getUniqueId())
@@ -139,28 +142,30 @@ public final class JukeboxGui implements Listener {
 
         private void click(int slot) {
             if (slot < PAGE_SIZE) {
-                if (folders && slot < visibleFolders.size()) {
-                    List<SongMetadata> songs = plugin.library().directFolder(visibleFolders.get(slot));
-                    if (songs.isEmpty()) player.sendMessage("That folder has no direct songs.");
-                    else {
-                        plugin.playback().queue(player.getUniqueId(), songs);
-                        plugin.playback().skip(player.getUniqueId());
-                        player.sendMessage("Queued " + songs.size() + " songs.");
-                        folders = false; page = 0;
-                    }
-                } else if (!folders && slot < visibleSongs.size()) {
-                    SongMetadata song = visibleSongs.get(slot);
-                    if (mode == Mode.SIGN) draft = draft.withSong(song.id());
-                    else if (!plugin.playback().playPersonal(player, song, plugin.settings().personalVolume())) {
-                        player.sendMessage("Could not start playback (the source limit may be reached).");
+                if (slot < visibleEntries.size()) {
+                    BrowserEntry entry = visibleEntries.get(slot);
+                    if (entry instanceof FolderEntry folder) {
+                        currentFolder = folder.path();
+                        page = 0;
+                    } else if (entry instanceof SongEntry songEntry) {
+                        SongMetadata song = songEntry.song();
+                        if (mode == Mode.SIGN) draft = draft.withSong(song.id());
+                        else if (!plugin.playback().playPersonal(player, song, plugin.settings().personalVolume())) {
+                            player.sendMessage("Could not start playback (the source limit may be reached).");
+                        }
                     }
                 }
                 render();
                 return;
             }
-            if (slot == 45) { page = Math.max(0, page - 1); render(); return; }
+            if (slot == 45) {
+                if (page > 0) page--;
+                else if (!currentFolder.isEmpty()) currentFolder = parentFolder(currentFolder);
+                render(); return;
+            }
             if (slot == 53) {
-                int count = folders ? plugin.library().folders().size() : plugin.library().all().size();
+                int count = plugin.library().childFolders(currentFolder).size()
+                        + plugin.library().directFolder(currentFolder).size();
                 if ((page + 1) * PAGE_SIZE < count) page++;
                 render(); return;
             }
@@ -199,9 +204,21 @@ public final class JukeboxGui implements Listener {
 
         private void clickPersonal(int slot) {
             switch (slot) {
-                case 46 -> { folders = false; page = 0; }
-                case 47 -> { folders = true; page = 0; }
+                case 46 -> { currentFolder = ""; page = 0; }
+                case 47 -> {
+                    List<SongMetadata> songs = plugin.library().directFolder(currentFolder);
+                    if (songs.isEmpty()) player.sendMessage("This folder has no direct songs.");
+                    else {
+                        plugin.playback().queue(player.getUniqueId(), songs);
+                        plugin.playback().skip(player.getUniqueId());
+                        player.sendMessage("Queued " + songs.size() + " songs.");
+                    }
+                }
                 case 48 -> {
+                    if (!plugin.playback().isPersonalActive(player.getUniqueId())) {
+                        player.sendMessage("No song is currently playing.");
+                        break;
+                    }
                     boolean paused = plugin.playback().togglePause(player.getUniqueId());
                     player.sendMessage(paused ? "Playback paused." : "Playback resumed.");
                 }
@@ -224,7 +241,8 @@ public final class JukeboxGui implements Listener {
 
     private static ItemStack songItem(SongMetadata song, boolean selected) {
         String duration = formatDuration(song.duration());
-        return item(selected ? Material.MUSIC_DISC_CAT : Material.MUSIC_DISC_13,
+        Material disc = MUSIC_DISCS.get(Math.floorMod(song.id().hashCode(), MUSIC_DISCS.size()));
+        return item(disc,
                 (selected ? "✓ " : "") + song.displayTitle(),
                 song.author().isBlank() ? "Unknown author" : song.author(),
                 song.id(), String.format("%.2f ticks/s • %s", song.tempo(), duration),
@@ -244,6 +262,20 @@ public final class JukeboxGui implements Listener {
         stack.setItemMeta(meta);
         return stack;
     }
+
+    private static String folderName(String path) {
+        int separator = path.lastIndexOf('/');
+        return separator < 0 ? path : path.substring(separator + 1);
+    }
+
+    private static String parentFolder(String path) {
+        int separator = path.lastIndexOf('/');
+        return separator < 0 ? "" : path.substring(0, separator);
+    }
+
+    private sealed interface BrowserEntry permits FolderEntry, SongEntry { }
+    private record FolderEntry(String path) implements BrowserEntry { }
+    private record SongEntry(SongMetadata song) implements BrowserEntry { }
 
     private enum Mode { SIGN, PERSONAL }
 }

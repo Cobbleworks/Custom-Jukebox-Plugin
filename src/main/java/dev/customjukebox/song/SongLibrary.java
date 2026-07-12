@@ -107,6 +107,21 @@ public final class SongLibrary {
                 .sorted(Comparator.comparing(SongMetadata::id)).toList();
     }
 
+    public List<String> childFolders(String folder) {
+        String normalized = folder.replace('\\', '/');
+        String prefix = normalized.isEmpty() ? "" : normalized + "/";
+        return songs.values().stream()
+                .map(SongMetadata::folder)
+                .filter(candidate -> candidate.startsWith(prefix) && !candidate.equals(normalized))
+                .map(candidate -> {
+                    int separator = candidate.indexOf('/', prefix.length());
+                    return separator < 0 ? candidate : candidate.substring(0, separator);
+                })
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
     public Song load(SongMetadata metadata) {
         Song song = NBSDecoder.parse(metadata.file().toFile());
         if (song == null) throw new IllegalArgumentException("Could not decode " + metadata.id());

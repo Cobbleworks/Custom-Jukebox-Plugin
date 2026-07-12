@@ -68,8 +68,8 @@ public final class SignManager {
         pdc.set(redstoneKey, PersistentDataType.STRING, config.redstoneMode().name());
         if (rewriteText) {
             sign.getSide(Side.FRONT).line(0, Component.text("[jukebox]"));
-            sign.getSide(Side.FRONT).line(1, Component.text(config.volume()));
-            sign.getSide(Side.FRONT).line(2, Component.text(Boolean.toString(config.loop())));
+            sign.getSide(Side.FRONT).line(1, Component.empty());
+            sign.getSide(Side.FRONT).line(2, Component.empty());
         }
         sign.update(true, false);
         index.add(BlockKey.of(sign.getLocation()));
