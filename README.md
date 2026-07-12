@@ -21,7 +21,8 @@ region scheduler, so `folia-supported` is deliberately false.
 
 Write `[jukebox]` on line 1. The picker opens one tick after the edit closes;
 volume and looping are configured there. Right-click a configured sign for its
-GUI, or sneak-right-click to use vanilla text editing.
+GUI, or sneak-right-click to use vanilla text editing. The selected song title
+is displayed in truncated form on line 2.
 
 Redstone modes are `Toggle` (play while powered), `Pulse` (rising edge starts),
 and `Ignore` (GUI only). Sign configuration is stored on the sign PDC; an

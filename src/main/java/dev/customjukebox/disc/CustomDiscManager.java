@@ -2,6 +2,7 @@ package dev.customjukebox.disc;
 
 import dev.customjukebox.CustomJukeboxPlugin;
 import dev.customjukebox.song.SongMetadata;
+import io.papermc.paper.datacomponent.DataComponentTypes;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Location;
@@ -48,6 +49,7 @@ public final class CustomDiscManager implements Listener {
     public ItemStack create(SongMetadata song) {
         Material material = MUSIC_DISCS.get(Math.floorMod(song.id().hashCode(), MUSIC_DISCS.size()));
         ItemStack disc = ItemStack.of(material);
+        disc.unsetData(DataComponentTypes.JUKEBOX_PLAYABLE);
         disc.editMeta(meta -> {
             meta.displayName(Component.text(song.displayTitle(), NamedTextColor.GOLD));
             meta.lore(List.of(Component.text("Custom Jukebox song", NamedTextColor.GRAY)));
@@ -79,11 +81,15 @@ public final class CustomDiscManager implements Listener {
             return;
         }
         ItemStack record = event.getItem().asOne();
+        // A music-disc material normally carries its own vanilla track. Strip
+        // that component from both new and previously created custom discs.
+        record.unsetData(DataComponentTypes.JUKEBOX_PLAYABLE);
         jukebox.setRecord(record);
         if (!jukebox.update(true, false)) {
             event.getPlayer().sendMessage("Could not insert that song disc.");
             return;
         }
+        jukebox.stopPlaying();
 
         consumeHeldItem(event.getPlayer(), event.getHand(), event.getItem());
         String key = sourceKey(jukebox.getLocation());

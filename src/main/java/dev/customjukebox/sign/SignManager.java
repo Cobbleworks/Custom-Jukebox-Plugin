@@ -68,7 +68,10 @@ public final class SignManager {
         pdc.set(redstoneKey, PersistentDataType.STRING, config.redstoneMode().name());
         if (rewriteText) {
             sign.getSide(Side.FRONT).line(0, Component.text("[jukebox]"));
-            sign.getSide(Side.FRONT).line(1, Component.empty());
+            String title = plugin.library().find(config.songId())
+                    .map(SongMetadata::displayTitle)
+                    .orElse(config.songId() == null ? "" : config.songId());
+            sign.getSide(Side.FRONT).line(1, Component.text(truncate(title, 15)));
             sign.getSide(Side.FRONT).line(2, Component.empty());
         }
         sign.update(true, false);
@@ -143,6 +146,12 @@ public final class SignManager {
         yaml.set("signs", index.stream().map(BlockKey::encode).toList());
         try { yaml.save(indexFile); }
         catch (IOException exception) { plugin.getLogger().warning("Could not save signs.yml: " + exception.getMessage()); }
+    }
+
+    private static String truncate(String value, int maxCodePoints) {
+        if (value.codePointCount(0, value.length()) <= maxCodePoints) return value;
+        int end = value.offsetByCodePoints(0, maxCodePoints - 1);
+        return value.substring(0, end) + "…";
     }
 
     public record BlockKey(String world, int x, int y, int z) {
