@@ -5,6 +5,8 @@ import com.xxmicloxx.NoteBlockAPI.model.Note;
 import com.xxmicloxx.NoteBlockAPI.model.Song;
 import dev.customjukebox.CustomJukeboxPlugin;
 import dev.customjukebox.song.SongMetadata;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
@@ -43,7 +45,7 @@ public final class PlaybackManager {
         if (!hasCapacity()) return false;
         try {
             Playback playback = new Playback(key, plugin.library().load(metadata), volume, loop,
-                    tick -> playWorld(location, tick), onEnd);
+                    tick -> playWorld(location, tick), onEnd, () -> { });
             active.put(key, playback);
             playback.runTaskTimer(plugin, 0L, 1L);
             return true;
@@ -66,7 +68,8 @@ public final class PlaybackManager {
         state.current = metadata;
         try {
             Playback playback = new Playback(key, plugin.library().load(metadata), volume, state.loop,
-                    tick -> playPlayer(player.getUniqueId(), tick), () -> advance(player.getUniqueId()));
+                    tick -> playPlayer(player.getUniqueId(), tick), () -> advance(player.getUniqueId()),
+                    () -> showPersonalStatus(player.getUniqueId(), metadata));
             active.put(key, playback);
             playback.runTaskTimer(plugin, 0L, 1L);
             return true;
@@ -123,6 +126,21 @@ public final class PlaybackManager {
         return active.containsKey(personalKey(player));
     }
 
+    public boolean playJukebox(String key, Location location, SongMetadata metadata, int volume) {
+        stop(key);
+        if (!hasCapacity()) return false;
+        try {
+            Playback playback = new Playback(key, plugin.library().load(metadata), volume, false,
+                    tick -> playWorld(location, tick), () -> { }, () -> { });
+            active.put(key, playback);
+            playback.runTaskTimer(plugin, 0L, 1L);
+            return true;
+        } catch (RuntimeException exception) {
+            plugin.getLogger().warning("Could not play " + metadata.id() + ": " + exception.getMessage());
+            return false;
+        }
+    }
+
     public void stopPersonal(UUID player) {
         stop(personalKey(player));
         PersonalState state = personal.get(player);
@@ -156,29 +174,41 @@ public final class PlaybackManager {
         }
     }
 
+    private void showPersonalStatus(UUID playerId, SongMetadata metadata) {
+        Player player = plugin.getServer().getPlayer(playerId);
+        if (player != null) {
+            player.sendActionBar(Component.text("Playing Song: ", NamedTextColor.GRAY)
+                    .append(Component.text(metadata.displayTitle(), NamedTextColor.GOLD)));
+        }
+    }
+
     private final class Playback extends BukkitRunnable {
         private final String key;
         private final Song song;
         private final int sourceVolume;
         private final Consumer<NoteTick> output;
         private final Runnable onEnd;
+        private final Runnable status;
         private double songTickAccumulator;
         private int songTick = -1;
+        private int statusTick;
         private boolean loop;
         private boolean paused;
 
         private Playback(String key, Song song, int sourceVolume, boolean loop,
-                         Consumer<NoteTick> output, Runnable onEnd) {
+                         Consumer<NoteTick> output, Runnable onEnd, Runnable status) {
             this.key = key;
             this.song = song;
             this.sourceVolume = sourceVolume;
             this.loop = loop;
             this.output = output;
             this.onEnd = onEnd;
+            this.status = status;
         }
 
         @Override public void run() {
             if (paused) return;
+            if (statusTick++ % 20 == 0) status.run();
             songTickAccumulator += song.getSpeed() / 20.0;
             while (songTickAccumulator >= 1.0) {
                 songTickAccumulator -= 1.0;

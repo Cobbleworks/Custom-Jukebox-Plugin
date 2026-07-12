@@ -37,3 +37,7 @@ independent `signs.yml` location index powers `/jukebox list-signs`.
 
 Permissions: `customjukebox.play`, `customjukebox.sign.place`, and
 `customjukebox.admin`.
+
+Personal playback shows the current song in the player's action bar. Middle-
+click a song in the personal picker to receive a named disc; inserting that
+disc into a jukebox plays the custom song from the jukebox location.

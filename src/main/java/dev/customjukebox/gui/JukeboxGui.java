@@ -13,6 +13,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -55,7 +56,7 @@ public final class JukeboxGui implements Listener {
         if (!(event.getView().getTopInventory().getHolder(false) instanceof Session session)) return;
         event.setCancelled(true);
         if (event.getClickedInventory() != event.getView().getTopInventory()) return;
-        session.click(event.getSlot());
+        session.click(event.getSlot(), event.getClick() == ClickType.MIDDLE);
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -140,7 +141,7 @@ public final class JukeboxGui implements Listener {
             inventory.setItem(52, item(Material.OAK_DOOR, "Close"));
         }
 
-        private void click(int slot) {
+        private void click(int slot, boolean middleClick) {
             if (slot < PAGE_SIZE) {
                 if (slot < visibleEntries.size()) {
                     BrowserEntry entry = visibleEntries.get(slot);
@@ -149,7 +150,9 @@ public final class JukeboxGui implements Listener {
                         page = 0;
                     } else if (entry instanceof SongEntry songEntry) {
                         SongMetadata song = songEntry.song();
-                        if (mode == Mode.SIGN) draft = draft.withSong(song.id());
+                        if (middleClick && mode == Mode.PERSONAL) {
+                            plugin.discs().give(player, song);
+                        } else if (mode == Mode.SIGN) draft = draft.withSong(song.id());
                         else if (!plugin.playback().playPersonal(player, song, plugin.settings().personalVolume())) {
                             player.sendMessage("Could not start playback (the source limit may be reached).");
                         }
