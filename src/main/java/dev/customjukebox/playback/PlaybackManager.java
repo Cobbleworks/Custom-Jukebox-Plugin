@@ -126,21 +126,6 @@ public final class PlaybackManager {
         return active.containsKey(personalKey(player));
     }
 
-    public boolean playJukebox(String key, Location location, SongMetadata metadata, int volume) {
-        stop(key);
-        if (!hasCapacity()) return false;
-        try {
-            Playback playback = new Playback(key, plugin.library().load(metadata), volume, false,
-                    tick -> playWorld(location, tick), () -> { }, () -> { });
-            active.put(key, playback);
-            playback.runTaskTimer(plugin, 0L, 1L);
-            return true;
-        } catch (RuntimeException exception) {
-            plugin.getLogger().warning("Could not play " + metadata.id() + ": " + exception.getMessage());
-            return false;
-        }
-    }
-
     public void stopPersonal(UUID player) {
         stop(personalKey(player));
         PersonalState state = personal.get(player);

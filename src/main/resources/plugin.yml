@@ -2,7 +2,7 @@ name: CustomJukebox
 version: '${project.version}'
 main: dev.customjukebox.CustomJukeboxPlugin
 api-version: '26.1.2'
-description: Plays NBS songs from signs, custom discs, and personal jukeboxes
+description: Plays NBS songs from signs and personal jukeboxes
 authors: [CustomJukebox]
 depend: [NoteBlockAPI]
 folia-supported: false
