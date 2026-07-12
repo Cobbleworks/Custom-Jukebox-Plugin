@@ -1,0 +1,15 @@
+# Volume is passed directly to Player#playSound. Values above 1 increase the
+# vanilla audible radius; 0 is silent. Sign and GUI inputs share these limits.
+volume:
+  min: 0
+  max: 10
+  default: 3
+
+# Personal playback is heard only by the invoking player.
+personal-default-volume: 3
+
+# Includes both sign and personal sources.
+max-active-sources: 20
+
+# When true, malformed/unreadable NBS files are logged during scans.
+log-invalid-songs: true

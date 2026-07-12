@@ -1,0 +1,22 @@
+name: CustomJukebox
+version: '${project.version}'
+main: dev.customjukebox.CustomJukeboxPlugin
+api-version: '26.1.2'
+description: Plays NBS songs from signs and personal jukeboxes
+authors: [CustomJukebox]
+depend: [NoteBlockAPI]
+folia-supported: false
+commands:
+  jukebox:
+    description: Opens and controls Custom Jukebox
+    usage: /jukebox <play [song]|stop|reload|list-signs>
+permissions:
+  customjukebox.play:
+    description: Use personal jukebox playback
+    default: true
+  customjukebox.sign.place:
+    description: Create and configure jukebox signs
+    default: op
+  customjukebox.admin:
+    description: Reload songs and list jukebox signs
+    default: op
