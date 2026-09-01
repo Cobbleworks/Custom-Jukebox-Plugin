@@ -25,6 +25,9 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
+/**
+ * Renders folder, song, and playback controls and validates inventory interactions.
+ */
 public final class JukeboxGui implements Listener {
     private static final int PAGE_SIZE = 45;
     private static final List<Material> MUSIC_DISCS = Arrays.stream(Material.values())

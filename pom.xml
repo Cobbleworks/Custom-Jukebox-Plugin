@@ -12,7 +12,7 @@
     <properties>
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <paper.version>26.1.2.build.74-stable</paper.version>
+        <paper.version>26.2.build.121-stable</paper.version>
         <junit.version>5.12.2</junit.version>
     </properties>
 
@@ -20,6 +20,10 @@
         <repository>
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
+        <repository>
+            <id>codemc</id>
+            <url>https://repo.codemc.io/repository/maven-public/</url>
         </repository>
     </repositories>
 
@@ -30,13 +34,11 @@
             <version>${paper.version}</version>
             <scope>provided</scope>
         </dependency>
-        <!-- The supplied upstream jar is intentionally a server plugin dependency, not shaded. -->
         <dependency>
             <groupId>com.xxmicloxx</groupId>
             <artifactId>NoteBlockAPI</artifactId>
-            <version>1.7.0</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/NoteBlockAPI-1.7.0.jar</systemPath>
+            <version>1.7.0-SNAPSHOT</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

@@ -21,6 +21,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+/**
+ * Indexes song metadata and folder relationships while loading full songs on demand.
+ */
 public final class SongLibrary {
     private final CustomJukeboxPlugin plugin;
     private final Path root;

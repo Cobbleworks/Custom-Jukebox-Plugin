@@ -24,6 +24,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+/**
+ * Stores sign configuration on blocks and maintains the searchable location index.
+ */
 public final class SignManager {
     private final CustomJukeboxPlugin plugin;
     private final NamespacedKey markerKey;

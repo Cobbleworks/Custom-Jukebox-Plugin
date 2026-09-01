@@ -1,0 +1,24 @@
+name: Plugin CI and Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/main/**'
+      - 'pom.xml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'pom.xml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    uses: Cobbleworks/.github/.github/workflows/plugin-release.yml@main
+    with:
+      display-name: 'Custom Jukebox'
+      publish: ${{ github.event_name != 'pull_request' }}

@@ -12,6 +12,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Objects;
 
+/**
+ * Owns the song index, playback sources, sign registry, GUI, and command lifecycle.
+ */
 public final class CustomJukeboxPlugin extends JavaPlugin {
     private PluginSettings settings;
     private SongLibrary library;

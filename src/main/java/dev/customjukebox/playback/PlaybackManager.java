@@ -21,6 +21,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+/**
+ * Enforces the source limit and owns personal and sign-backed NoteBlockAPI players.
+ */
 public final class PlaybackManager {
     private static final Sound[] VANILLA_INSTRUMENTS = {
             Sound.BLOCK_NOTE_BLOCK_HARP, Sound.BLOCK_NOTE_BLOCK_BASS,
