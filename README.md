@@ -1,7 +1,7 @@
 <p align="center">
-  <img src="images/plugin-logo.png" alt="Custom Jukebox Plugin" width="200" height="200" />
+  <img src="images/plugin-banner.png" alt="Cobbleworks - Custom Jukebox Plugin banner" width="818" />
 </p>
-<h1 align="center">Custom Jukebox Plugin</h1>
+<h1 align="center">Cobbleworks - Custom Jukebox Plugin</h1>
 <p align="center">
   <b>Play Note Block Studio songs through signs, redstone, or a personal music browser.</b><br>
   <b>Organize large song libraries into folders and control playback without leaving the game.</b>
@@ -12,7 +12,7 @@
 
 Custom Jukebox indexes `.nbs` songs only when needed and presents them through an inventory-based browser. Players can listen privately, while administrators can turn signs into world jukeboxes controlled by interaction or redstone. Folder navigation keeps even large song collections manageable.
 
-### **Core Features**
+## **Core Features**
 
 - **Folder-aware song browser:** Subdirectories become navigable folders in the in-game GUI
 - **Personal playback:** Play or stop a song without creating a world jukebox
@@ -23,7 +23,7 @@ Custom Jukebox indexes `.nbs` songs only when needed and presents them through a
 - **Action-bar status:** Show the active personal song while it is playing
 - **Live reload:** Rescan the song library without restarting the server
 
-### **Supported Platforms**
+## **Supported Platforms**
 
 - **Server Software:** Paper
 - **Minecraft Version:** 26.2
@@ -32,22 +32,24 @@ Custom Jukebox indexes `.nbs` songs only when needed and presents them through a
 
 ## **Table of Contents**
 
-1. [Getting Started](#getting-started)
+1. [Core Features](#core-features)
+2. [Supported Platforms](#supported-platforms)
+3. [Getting Started](#getting-started)
     - [Prerequisites](#prerequisites)
     - [Installation Steps](#installation-steps)
     - [Verifying Installation](#verifying-installation)
-2. [Third-Party Plugins](#third-party-plugins)
+4. [Third-Party Plugins](#third-party-plugins)
     - [NoteBlockAPI](#noteblockapi)
-3. [Configuration](#configuration)
-4. [How It Works](#how-it-works)
+5. [Configuration](#configuration)
+6. [How It Works](#how-it-works)
     - [Song Library](#song-library)
     - [Jukebox Signs](#jukebox-signs)
     - [Redstone Modes](#redstone-modes)
-5. [Commands](#commands)
-6. [Permissions](#permissions)
-7. [Building from Source](#building-from-source)
-8. [License](#license)
-9. [Screenshots](#screenshots)
+7. [Commands](#commands)
+8. [Permissions](#permissions)
+9. [Building from Source](#building-from-source)
+10. [License](#license)
+11. [Screenshots](#screenshots)
 
 ## **Getting Started**
 
