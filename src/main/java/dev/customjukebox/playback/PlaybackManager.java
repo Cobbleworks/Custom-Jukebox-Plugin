@@ -44,6 +44,16 @@ public final class PlaybackManager {
 
     public boolean playSign(String key, Location location, SongMetadata metadata, int volume,
                             boolean loop, Runnable onEnd) {
+        return playWorldSource(key, location, metadata, volume, loop, onEnd);
+    }
+
+    public boolean playJukebox(String key, Location location, SongMetadata metadata, int volume,
+                               Runnable onEnd) {
+        return playWorldSource(key, location, metadata, volume, false, onEnd);
+    }
+
+    private boolean playWorldSource(String key, Location location, SongMetadata metadata, int volume,
+                                    boolean loop, Runnable onEnd) {
         stop(key);
         if (!hasCapacity()) return false;
         try {

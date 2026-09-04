@@ -10,7 +10,7 @@
   <a href="https://github.com/Cobbleworks/Custom-Jukebox-Plugin/releases"><img src="https://img.shields.io/github/v/release/Cobbleworks/Custom-Jukebox-Plugin?include_prereleases&style=flat-square&color=4CAF50" alt="Latest Release"></a>&nbsp;&nbsp;<a href="https://github.com/Cobbleworks/Custom-Jukebox-Plugin/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License"></a>&nbsp;&nbsp;<img src="https://img.shields.io/badge/Java-25+-orange?style=flat-square" alt="Java Version">&nbsp;&nbsp;<img src="https://img.shields.io/badge/Minecraft-26.2-green?style=flat-square" alt="Minecraft Version">&nbsp;&nbsp;<img src="https://img.shields.io/badge/Platform-Paper-yellow?style=flat-square" alt="Platform">&nbsp;&nbsp;<img src="https://img.shields.io/badge/Status-Active-brightgreen?style=flat-square" alt="Status">
 </p>
 
-Custom Jukebox indexes `.nbs` songs only when needed and presents them through an inventory-based browser. Players can listen privately, while administrators can turn signs into world jukeboxes controlled by interaction or redstone. Folder navigation keeps even large song collections manageable.
+Custom Jukebox indexes `.nbs` songs only when needed and presents them through an inventory-based browser. Players can listen privately, administrators can create world signs, and songs can be bound to persistent custom records that play in ordinary jukebox blocks. Folder navigation keeps even large song collections manageable.
 
 ## **Core Features**
 
@@ -22,6 +22,9 @@ Custom Jukebox indexes `.nbs` songs only when needed and presents them through a
 - **Lazy song loading:** Scan metadata without keeping every complete song in memory
 - **Action-bar status:** Show the active personal song while it is playing
 - **Live reload:** Rescan the song library without restarting the server
+- **Persistent custom records:** Create a physical record for any indexed song and play it in a vanilla jukebox
+- **Random intact disc artwork:** Each created record uses a randomly selected full music-disc icon; the cracked `11` disc and disc fragments are excluded
+- **Block lifecycle support:** Custom record playback resumes after a restart or chunk reload and follows player or hopper insertion and removal
 
 ## **Supported Platforms**
 
@@ -45,6 +48,7 @@ Custom Jukebox indexes `.nbs` songs only when needed and presents them through a
     - [Song Library](#song-library)
     - [Jukebox Signs](#jukebox-signs)
     - [Redstone Modes](#redstone-modes)
+    - [Custom Records](#custom-records)
 7. [Commands](#commands)
 8. [Permissions](#permissions)
 9. [Building from Source](#building-from-source)
@@ -66,6 +70,7 @@ Custom Jukebox indexes `.nbs` songs only when needed and presents them through a
 3. Stop the server and copy both jars into its `plugins/` directory
 4. Start the server once, then add `.nbs` files under `plugins/CustomJukebox/songs/`
 5. Use `/jukebox play` to browse the library or create a `[jukebox]` sign
+6. Use `/jukebox disc <player> <song>` as an operator to create a physical custom record
 
 Song subfolders are shown as folders in the browser, so the directory structure can be used to group albums, areas, or event music.
 
@@ -93,7 +98,7 @@ The generated `config.yml` controls playback volume and source limits.
 | `volume.max` | Highest value accepted by signs and the GUI | `10` |
 | `volume.default` | Initial volume for a new jukebox sign | `3` |
 | `personal-default-volume` | Initial personal playback volume | `3` |
-| `max-active-sources` | Combined limit for sign and personal playback sources | `20` |
+| `max-active-sources` | Combined limit for sign, record, and personal playback sources | `20` |
 | `log-invalid-songs` | Log malformed or unreadable `.nbs` files during scans | `true` |
 
 Values above `1` use Minecraft's extended audible radius behavior. A volume of `0` is silent.
@@ -118,6 +123,12 @@ The sign stores its own configuration using Paper's persistent data container. `
 | `Pulse` | Starts playback on a rising redstone edge |
 | `Ignore` | Ignores redstone and responds only through the GUI |
 
+### **Custom Records**
+
+`/jukebox disc <player> <song>` creates a music disc whose persistent item data stores the song's relative library path. Its material is selected randomly from Minecraft's intact music discs; `MUSIC_DISC_11` and all disc fragments are deliberately excluded. The title and author shown on the item come from the indexed NBS metadata.
+
+Insert the record into an ordinary jukebox to play the bound NBS song at the configured default volume. The record remains inside the block like a vanilla disc and can be ejected normally. Its song binding survives inventory transfers, dropped items, chunk unloads, hopper movement, and server restarts. If the corresponding `.nbs` file is renamed or removed, the record remains intact but cannot play until that song path is restored and `/jukebox reload` is run.
+
 ## **Commands**
 
 | Command | Description |
@@ -125,6 +136,7 @@ The sign stores its own configuration using Paper's persistent data container. `
 | `/jukebox play` | Open the personal song browser and playback controls |
 | `/jukebox play <path or title>` | Start a song directly |
 | `/jukebox stop` | Stop personal playback |
+| `/jukebox disc <player> <path or title>` | Create a persistent physical record for an indexed song |
 | `/jukebox reload` | Rescan the song library |
 | `/jukebox list-signs` | List registered jukebox signs and their locations |
 
@@ -134,6 +146,8 @@ The sign stores its own configuration using Paper's persistent data container. `
 |------------|-------------|---------|
 | `customjukebox.play` | Use personal playback | `true` |
 | `customjukebox.sign.place` | Create and configure jukebox signs | `op` |
+| `customjukebox.disc.create` | Create song-bound custom records | `op` |
+| `customjukebox.disc.use` | Insert and play custom records in jukebox blocks | `true` |
 | `customjukebox.admin` | Reload songs and list registered signs | `op` |
 
 ## **Building from Source**

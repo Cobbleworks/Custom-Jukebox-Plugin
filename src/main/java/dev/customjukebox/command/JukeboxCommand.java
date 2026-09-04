@@ -8,6 +8,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ public final class JukeboxCommand implements CommandExecutor, TabCompleter {
         return switch (args[0].toLowerCase(Locale.ROOT)) {
             case "play" -> play(sender, args);
             case "stop" -> stop(sender);
+            case "disc", "give-disc" -> disc(sender, args);
             case "reload" -> reload(sender);
             case "list-signs" -> listSigns(sender);
             default -> help(sender);
@@ -72,6 +74,33 @@ public final class JukeboxCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    private boolean disc(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("customjukebox.disc.create")) return denied(sender);
+        if (args.length < 3) {
+            sender.sendMessage("Usage: /jukebox disc <player> <song>");
+            return true;
+        }
+
+        Player target = Bukkit.getPlayerExact(args[1]);
+        if (target == null) {
+            sender.sendMessage("Player not found: " + args[1]);
+            return true;
+        }
+
+        String query = String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length));
+        SongMetadata song = plugin.library().find(query).orElse(null);
+        if (song == null) {
+            sender.sendMessage("No unique song matched '" + query + "'. Use its relative path if titles collide.");
+            return true;
+        }
+
+        var leftovers = target.getInventory().addItem(plugin.discs().createDisc(song, 1));
+        leftovers.values().forEach(item -> target.getWorld().dropItemNaturally(target.getLocation(), item));
+        target.sendMessage("You received a custom record for: " + song.displayTitle());
+        if (sender != target) sender.sendMessage("Created a custom record for " + target.getName() + ".");
+        return true;
+    }
+
     private boolean listSigns(CommandSender sender) {
         if (!sender.hasPermission("customjukebox.admin")) return denied(sender);
         List<BlockKey> signs = plugin.signs().validateAndList();
@@ -83,7 +112,13 @@ public final class JukeboxCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean help(CommandSender sender) {
-        sender.sendMessage("/jukebox play [song], /jukebox stop, /jukebox reload, /jukebox list-signs");
+        sender.sendMessage("/jukebox play [song], /jukebox stop");
+        if (sender.hasPermission("customjukebox.disc.create")) {
+            sender.sendMessage("/jukebox disc <player> <song>");
+        }
+        if (sender.hasPermission("customjukebox.admin")) {
+            sender.sendMessage("/jukebox reload, /jukebox list-signs");
+        }
         return true;
     }
 
@@ -96,11 +131,21 @@ public final class JukeboxCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
             List<String> options = new ArrayList<>(List.of("play", "stop"));
+            if (sender.hasPermission("customjukebox.disc.create")) options.add("disc");
             if (sender.hasPermission("customjukebox.admin")) options.addAll(List.of("reload", "list-signs"));
             return prefix(options, args[0]);
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("play") && sender.hasPermission("customjukebox.play")) {
             return prefix(plugin.library().all().stream().map(SongMetadata::id).toList(), args[1]);
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("disc")
+                && sender.hasPermission("customjukebox.disc.create")) {
+            return prefix(Bukkit.getOnlinePlayers().stream().map(Player::getName).toList(), args[1]);
+        }
+        if (args.length >= 3 && args[0].equalsIgnoreCase("disc")
+                && sender.hasPermission("customjukebox.disc.create")) {
+            String query = String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length));
+            return prefix(plugin.library().all().stream().map(SongMetadata::id).toList(), query);
         }
         return List.of();
     }

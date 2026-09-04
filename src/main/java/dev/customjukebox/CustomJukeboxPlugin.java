@@ -2,6 +2,7 @@ package dev.customjukebox;
 
 import dev.customjukebox.command.JukeboxCommand;
 import dev.customjukebox.config.PluginSettings;
+import dev.customjukebox.disc.CustomDiscManager;
 import dev.customjukebox.gui.JukeboxGui;
 import dev.customjukebox.playback.PlaybackManager;
 import dev.customjukebox.sign.SignListener;
@@ -21,6 +22,7 @@ public final class CustomJukeboxPlugin extends JavaPlugin {
     private PlaybackManager playback;
     private SignManager signs;
     private JukeboxGui guis;
+    private CustomDiscManager discs;
 
     @Override
     public void onEnable() {
@@ -31,14 +33,17 @@ public final class CustomJukeboxPlugin extends JavaPlugin {
         playback = new PlaybackManager(this);
         signs = new SignManager(this);
         guis = new JukeboxGui(this);
+        discs = new CustomDiscManager(this);
 
         getServer().getPluginManager().registerEvents(new SignListener(this), this);
         getServer().getPluginManager().registerEvents(guis, this);
+        getServer().getPluginManager().registerEvents(discs, this);
         PluginCommand command = Objects.requireNonNull(getCommand("jukebox"));
         JukeboxCommand handler = new JukeboxCommand(this);
         command.setExecutor(handler);
         command.setTabCompleter(handler);
         getServer().getScheduler().runTask(this, signs::activateLoadedSigns);
+        getServer().getScheduler().runTask(this, discs::activateLoadedJukeboxes);
 
         getLogger().info("Indexed " + scan.songs() + " NBS songs (" + scan.invalid() + " invalid)." );
         getLogger().info("Volume range " + settings.minVolume() + "-" + settings.maxVolume()
@@ -46,6 +51,7 @@ public final class CustomJukeboxPlugin extends JavaPlugin {
     }
 
     @Override public void onDisable() {
+        if (discs != null) discs.shutdown();
         if (playback != null) playback.stopAll();
     }
 
@@ -59,4 +65,5 @@ public final class CustomJukeboxPlugin extends JavaPlugin {
     public PlaybackManager playback() { return playback; }
     public SignManager signs() { return signs; }
     public JukeboxGui guis() { return guis; }
+    public CustomDiscManager discs() { return discs; }
 }

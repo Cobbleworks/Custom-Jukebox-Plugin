@@ -2,14 +2,14 @@ name: CustomJukebox
 version: "${project.version}"
 main: dev.customjukebox.CustomJukeboxPlugin
 api-version: "26.2"
-description: Plays NBS songs from signs and personal jukeboxes
+description: Plays NBS songs from signs, custom records, and personal controls
 author: Cobbleworks
 website: https://github.com/Cobbleworks/Custom-Jukebox-Plugin
 depend: [NoteBlockAPI]
 commands:
   jukebox:
     description: Opens and controls Custom Jukebox
-    usage: /jukebox <play [song]|stop|reload|list-signs>
+    usage: /jukebox <play [song]|stop|disc <player> <song>|reload|list-signs>
 permissions:
   customjukebox.play:
     description: Use personal jukebox playback
@@ -17,6 +17,12 @@ permissions:
   customjukebox.sign.place:
     description: Create and configure jukebox signs
     default: op
+  customjukebox.disc.create:
+    description: Create song-bound custom records
+    default: op
+  customjukebox.disc.use:
+    description: Insert and play custom records in jukeboxes
+    default: true
   customjukebox.admin:
     description: Reload songs and list jukebox signs
     default: op
