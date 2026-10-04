@@ -37,6 +37,7 @@ public final class CustomJukeboxPlugin extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new SignListener(this), this);
         getServer().getPluginManager().registerEvents(guis, this);
+        getServer().getPluginManager().registerEvents(playback, this);
         getServer().getPluginManager().registerEvents(discs, this);
         PluginCommand command = Objects.requireNonNull(getCommand("jukebox"));
         JukeboxCommand handler = new JukeboxCommand(this);

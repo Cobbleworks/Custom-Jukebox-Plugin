@@ -2,6 +2,7 @@ package dev.customjukebox.disc;
 
 import dev.customjukebox.CustomJukeboxPlugin;
 import dev.customjukebox.song.SongMetadata;
+import dev.customjukebox.ui.Text;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -110,7 +111,7 @@ public final class CustomDiscManager implements Listener {
         if (jukebox.hasRecord() || !isCustomDisc(held)) return;
         if (!event.getPlayer().hasPermission("customjukebox.disc.use")) {
             event.setCancelled(true);
-            event.getPlayer().sendMessage("You do not have permission to use custom records.");
+            Text.error(event.getPlayer(), "You do not have permission to use custom records.");
             return;
         }
 
@@ -193,7 +194,7 @@ public final class CustomDiscManager implements Listener {
         Optional<SongMetadata> song = songId(jukebox.getRecord()).flatMap(plugin.library()::find);
         if (song.isEmpty()) {
             stop(jukebox.getLocation());
-            if (actor != null) actor.sendMessage("The song stored on this record is not in the current song library.");
+            if (actor != null) Text.error(actor, "This record's song is not in the song library.");
             return;
         }
 
@@ -203,7 +204,7 @@ public final class CustomDiscManager implements Listener {
                 song.get(), plugin.settings().defaultVolume(), () -> activeJukeboxes.remove(position));
         if (!started) {
             activeJukeboxes.remove(position);
-            if (actor != null) actor.sendMessage("Could not start playback because the source limit was reached.");
+            if (actor != null) Text.error(actor, "Could not start playback. The server's playback limit may be reached.");
         }
     }
 

@@ -3,11 +3,16 @@ package dev.customjukebox.sign;
 import dev.customjukebox.CustomJukeboxPlugin;
 import dev.customjukebox.song.SongMetadata;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
+import org.bukkit.block.data.AnaloguePowerable;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.Powerable;
 import org.bukkit.block.sign.Side;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -70,12 +75,12 @@ public final class SignManager {
         pdc.set(loopKey, PersistentDataType.BYTE, config.loop() ? (byte) 1 : (byte) 0);
         pdc.set(redstoneKey, PersistentDataType.STRING, config.redstoneMode().name());
         if (rewriteText) {
-            sign.getSide(Side.FRONT).line(0, Component.text("[jukebox]"));
+            sign.getSide(Side.FRONT).line(0, Component.text("[Jukebox]", NamedTextColor.DARK_BLUE, TextDecoration.BOLD));
             String title = plugin.library().find(config.songId())
                     .map(SongMetadata::displayTitle)
-                    .orElse(config.songId() == null ? "" : config.songId());
+                    .orElse(config.songId() == null || config.songId().isBlank() ? "No song" : config.songId());
             sign.getSide(Side.FRONT).line(1, Component.text(truncate(title, 15)));
-            sign.getSide(Side.FRONT).line(2, Component.empty());
+            sign.getSide(Side.FRONT).line(2, Component.text(summary(config), NamedTextColor.DARK_GRAY));
         }
         sign.update(true, false);
         index.add(BlockKey.of(sign.getLocation()));
@@ -108,7 +113,7 @@ public final class SignManager {
         SignConfig config = read(sign).orElse(null);
         if (config == null || config.redstoneMode() == RedstoneMode.IGNORE) return;
         BlockKey key = BlockKey.of(sign.getLocation());
-        boolean now = sign.getBlock().isBlockPowered() || sign.getBlock().isBlockIndirectlyPowered();
+        boolean now = isPoweredNear(sign.getBlock(), plugin.settings().redstoneRadius());
         boolean before = powered.getOrDefault(key, false);
         powered.put(key, now);
         if (config.redstoneMode() == RedstoneMode.TOGGLE) {
@@ -117,6 +122,67 @@ public final class SignManager {
         } else if (config.redstoneMode() == RedstoneMode.PULSE && now && !before) {
             play(sign);
         }
+    }
+
+    /**
+     * Returns registered jukebox signs within {@code radius} blocks (cube) of {@code origin}.
+     * Only the index is consulted, so no block states are read for empty positions.
+     */
+    public List<Sign> signsNear(Block origin, int radius) {
+        World world = origin.getWorld();
+        int side = 2 * radius + 1;
+        List<BlockKey> keys = new ArrayList<>();
+        if (index.size() < side * side * side) {
+            for (BlockKey key : index) {
+                if (key.world().equals(world.getName())
+                        && Math.abs(key.x() - origin.getX()) <= radius
+                        && Math.abs(key.y() - origin.getY()) <= radius
+                        && Math.abs(key.z() - origin.getZ()) <= radius) keys.add(key);
+            }
+        } else {
+            for (int dx = -radius; dx <= radius; dx++) for (int dy = -radius; dy <= radius; dy++) for (int dz = -radius; dz <= radius; dz++) {
+                BlockKey key = new BlockKey(world.getName(), origin.getX() + dx, origin.getY() + dy, origin.getZ() + dz);
+                if (index.contains(key)) keys.add(key);
+            }
+        }
+        List<Sign> signs = new ArrayList<>();
+        for (BlockKey key : keys) {
+            if (!world.isChunkLoaded(key.x() >> 4, key.z() >> 4)) continue;
+            if (world.getBlockAt(key.x(), key.y(), key.z()).getState() instanceof Sign sign && read(sign).isPresent()) {
+                signs.add(sign);
+            }
+        }
+        return signs;
+    }
+
+    /**
+     * True when any block in the cube around {@code center} carries redstone power: powered or
+     * indirectly powered blocks, active levers/buttons/plates/repeaters, or lit redstone dust.
+     * Blocks in unloaded chunks are skipped instead of being loaded.
+     */
+    static boolean isPoweredNear(Block center, int radius) {
+        World world = center.getWorld();
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                int x = center.getX() + dx, z = center.getZ() + dz;
+                if (!world.isChunkLoaded(x >> 4, z >> 4)) continue;
+                for (int dy = -radius; dy <= radius; dy++) {
+                    int y = center.getY() + dy;
+                    if (y < world.getMinHeight() || y >= world.getMaxHeight()) continue;
+                    Block block = world.getBlockAt(x, y, z);
+                    if (block.isBlockPowered() || block.isBlockIndirectlyPowered()) return true;
+                    BlockData data = block.getBlockData();
+                    if (data instanceof Powerable powerable && powerable.isPowered()) return true;
+                    if (data instanceof AnaloguePowerable analogue && analogue.getPower() > 0) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Re-registers a configured sign that is missing from the index (e.g. after signs.yml was lost). */
+    public void track(Sign sign) {
+        if (index.add(BlockKey.of(sign.getLocation()))) saveIndex();
     }
 
     public List<BlockKey> validateAndList() {
@@ -149,6 +215,13 @@ public final class SignManager {
         yaml.set("signs", index.stream().map(BlockKey::encode).toList());
         try { yaml.save(indexFile); }
         catch (IOException exception) { plugin.getLogger().warning("Could not save signs.yml: " + exception.getMessage()); }
+    }
+
+    private static String summary(SignConfig config) {
+        List<String> parts = new ArrayList<>();
+        if (config.loop()) parts.add("Loop");
+        if (config.redstoneMode() != RedstoneMode.IGNORE) parts.add(config.redstoneMode().display());
+        return String.join(" · ", parts);
     }
 
     private static String truncate(String value, int maxCodePoints) {

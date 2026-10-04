@@ -4,7 +4,10 @@ import org.bukkit.configuration.file.FileConfiguration;
 
 public record PluginSettings(int minVolume, int maxVolume, int defaultVolume,
                              int personalVolume, int maxActiveSources,
-                             boolean logInvalidSongs) {
+                             int redstoneRadius, boolean logInvalidSongs) {
+    /** Upper bound for the redstone search cube; larger values get expensive on busy redstone. */
+    public static final int MAX_REDSTONE_RADIUS = 8;
+
     public static PluginSettings from(FileConfiguration config) {
         int min = Math.max(0, config.getInt("volume.min", 0));
         int max = Math.max(min, config.getInt("volume.max", 10));
@@ -12,6 +15,7 @@ public record PluginSettings(int minVolume, int maxVolume, int defaultVolume,
         int personal = clamp(config.getInt("personal-default-volume", def), min, max);
         return new PluginSettings(min, max, def, personal,
                 Math.max(1, config.getInt("max-active-sources", 20)),
+                clamp(config.getInt("redstone.trigger-radius", 2), 0, MAX_REDSTONE_RADIUS),
                 config.getBoolean("log-invalid-songs", true));
     }
 

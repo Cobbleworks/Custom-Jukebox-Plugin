@@ -18,4 +18,16 @@ class PluginSettingsTest {
         assertEquals(1, settings.clampVolume(-10));
         assertEquals(5, settings.clampVolume(10));
     }
+
+    @Test void defaultsAndClampsRedstoneRadius() {
+        assertEquals(2, PluginSettings.from(new YamlConfiguration()).redstoneRadius());
+
+        YamlConfiguration negative = new YamlConfiguration();
+        negative.set("redstone.trigger-radius", -3);
+        assertEquals(0, PluginSettings.from(negative).redstoneRadius());
+
+        YamlConfiguration huge = new YamlConfiguration();
+        huge.set("redstone.trigger-radius", 100);
+        assertEquals(PluginSettings.MAX_REDSTONE_RADIUS, PluginSettings.from(huge).redstoneRadius());
+    }
 }

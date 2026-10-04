@@ -4,11 +4,19 @@ import dev.customjukebox.CustomJukeboxPlugin;
 import dev.customjukebox.sign.SignManager.BlockKey;
 import dev.customjukebox.song.SongLibrary;
 import dev.customjukebox.song.SongMetadata;
+import dev.customjukebox.sign.SignConfig;
+import dev.customjukebox.ui.Text;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.Bukkit;
+import org.bukkit.World;
+import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
@@ -35,7 +43,7 @@ public final class JukeboxCommand implements CommandExecutor, TabCompleter {
 
     private boolean play(CommandSender sender, String[] args) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage("Only players can use personal playback.");
+            Text.error(sender, "Only players can use personal playback.");
             return true;
         }
         if (!player.hasPermission("customjukebox.play")) return denied(player);
@@ -46,23 +54,27 @@ public final class JukeboxCommand implements CommandExecutor, TabCompleter {
         String query = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
         SongMetadata song = plugin.library().find(query).orElse(null);
         if (song == null) {
-            player.sendMessage("No unique song matched '" + query + "'. Use its relative path if titles collide.");
-        } else if (plugin.playback().playPersonal(player, song, plugin.settings().personalVolume())) {
-            player.sendMessage("Now playing: " + song.displayTitle());
+            Text.error(player, "No unique song matched '" + query + "'. Use its path if titles collide.");
+        } else if (plugin.playback().playPersonal(player, song)) {
+            Text.info(player, "Now playing: ", song.displayTitle());
         } else {
-            player.sendMessage("Could not start playback (the source limit may be reached).");
+            Text.error(player, "Could not start playback. The server's playback limit may be reached.");
         }
         return true;
     }
 
     private boolean stop(CommandSender sender) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage("Only players have personal playback.");
+            Text.error(sender, "Only players have personal playback.");
             return true;
         }
         if (!player.hasPermission("customjukebox.play")) return denied(player);
+        if (!plugin.playback().isPersonalActive(player.getUniqueId())) {
+            Text.info(player, "Nothing is playing.");
+            return true;
+        }
         plugin.playback().stopPersonal(player.getUniqueId());
-        player.sendMessage("Personal playback stopped.");
+        Text.info(player, "Playback stopped.");
         return true;
     }
 
@@ -70,60 +82,106 @@ public final class JukeboxCommand implements CommandExecutor, TabCompleter {
         if (!sender.hasPermission("customjukebox.admin")) return denied(sender);
         plugin.reloadSettings();
         SongLibrary.ScanResult result = plugin.library().scan();
-        sender.sendMessage("CustomJukebox indexed " + result.songs() + " songs (" + result.invalid() + " invalid)." );
+        if (result.invalid() == 0) Text.success(sender, "Indexed " + result.songs() + " songs.");
+        else Text.success(sender, "Indexed " + result.songs() + " songs. Skipped " + result.invalid()
+                + " invalid files; see the server log.");
         return true;
     }
 
     private boolean disc(CommandSender sender, String[] args) {
         if (!sender.hasPermission("customjukebox.disc.create")) return denied(sender);
         if (args.length < 3) {
-            sender.sendMessage("Usage: /jukebox disc <player> <song>");
+            Text.error(sender, "Usage: /jukebox disc <player> <song>");
             return true;
         }
 
         Player target = Bukkit.getPlayerExact(args[1]);
         if (target == null) {
-            sender.sendMessage("Player not found: " + args[1]);
+            Text.error(sender, "Player not found: ", args[1]);
             return true;
         }
 
         String query = String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length));
         SongMetadata song = plugin.library().find(query).orElse(null);
         if (song == null) {
-            sender.sendMessage("No unique song matched '" + query + "'. Use its relative path if titles collide.");
+            Text.error(sender, "No unique song matched '" + query + "'. Use its path if titles collide.");
             return true;
         }
 
         var leftovers = target.getInventory().addItem(plugin.discs().createDisc(song, 1));
         leftovers.values().forEach(item -> target.getWorld().dropItemNaturally(target.getLocation(), item));
-        target.sendMessage("You received a custom record for: " + song.displayTitle());
-        if (sender != target) sender.sendMessage("Created a custom record for " + target.getName() + ".");
+        Text.success(target, "You received a record: ", song.displayTitle());
+        if (sender != target) Text.success(sender, "Gave a record to ", target.getName());
         return true;
     }
 
     private boolean listSigns(CommandSender sender) {
         if (!sender.hasPermission("customjukebox.admin")) return denied(sender);
         List<BlockKey> signs = plugin.signs().validateAndList();
-        sender.sendMessage("Registered jukebox signs: " + signs.size());
-        for (BlockKey sign : signs) {
-            sender.sendMessage("- " + sign.world() + " @ " + sign.x() + ", " + sign.y() + ", " + sign.z());
+        if (signs.isEmpty()) {
+            Text.info(sender, "No jukebox signs yet. Write [jukebox] on the first line of a sign.");
+            return true;
         }
+        Text.info(sender, "Jukebox signs: ", String.valueOf(signs.size()));
+        for (BlockKey key : signs) sender.sendMessage(signLine(key));
         return true;
+    }
+
+    private Component signLine(BlockKey key) {
+        String coordinates = key.x() + " " + key.y() + " " + key.z();
+        String song = null;
+        boolean playing = false;
+        World world = Bukkit.getWorld(key.world());
+        if (world != null && world.isChunkLoaded(key.x() >> 4, key.z() >> 4)
+                && world.getBlockAt(key.x(), key.y(), key.z()).getState() instanceof Sign sign) {
+            SignConfig config = plugin.signs().read(sign).orElse(null);
+            if (config != null) {
+                song = plugin.library().find(config.songId()).map(SongMetadata::displayTitle).orElse("no song");
+                playing = plugin.signs().isPlaying(sign);
+            }
+        }
+        Component line = Component.text(" • ", NamedTextColor.DARK_GRAY)
+                .append(Component.text(key.world() + " " + coordinates, NamedTextColor.AQUA))
+                .append(Component.text(song == null ? "  (chunk not loaded)" : "  " + song,
+                        song == null ? NamedTextColor.DARK_GRAY : NamedTextColor.GRAY));
+        if (playing) line = line.append(Component.text("  ♪", NamedTextColor.GREEN));
+        return line.hoverEvent(HoverEvent.showText(Component.text("Click to prepare a teleport command", NamedTextColor.YELLOW)))
+                .clickEvent(ClickEvent.suggestCommand("/execute in " + world(key) + " run tp @s " + coordinates));
+    }
+
+    private static String world(BlockKey key) {
+        World world = Bukkit.getWorld(key.world());
+        return world == null ? key.world() : world.getKey().asString();
     }
 
     private boolean help(CommandSender sender) {
-        sender.sendMessage("/jukebox play [song], /jukebox stop");
+        Text.info(sender, "Commands:");
+        helpLine(sender, "/jukebox play", "Open the song browser");
+        helpLine(sender, "/jukebox play <song>", "Play a song directly");
+        helpLine(sender, "/jukebox stop", "Stop your music");
         if (sender.hasPermission("customjukebox.disc.create")) {
-            sender.sendMessage("/jukebox disc <player> <song>");
+            helpLine(sender, "/jukebox disc <player> <song>", "Give a song-bound record");
         }
         if (sender.hasPermission("customjukebox.admin")) {
-            sender.sendMessage("/jukebox reload, /jukebox list-signs");
+            helpLine(sender, "/jukebox reload", "Rescan the songs folder");
+            helpLine(sender, "/jukebox list-signs", "Show all jukebox signs");
+        }
+        if (sender.hasPermission("customjukebox.sign.place")) {
+            Text.info(sender, "Write [jukebox] on a sign to create a world jukebox.");
         }
         return true;
     }
 
+    private static void helpLine(CommandSender sender, String usage, String description) {
+        String suggestion = usage.contains("<") ? usage.substring(0, usage.indexOf('<')) : usage;
+        sender.sendMessage(Component.text(" " + usage, NamedTextColor.GOLD)
+                .append(Component.text(" - " + description, NamedTextColor.GRAY))
+                .hoverEvent(HoverEvent.showText(Component.text("Click to type this command", NamedTextColor.YELLOW)))
+                .clickEvent(ClickEvent.suggestCommand(suggestion)));
+    }
+
     private boolean denied(CommandSender sender) {
-        sender.sendMessage("You do not have permission to do that.");
+        Text.error(sender, "You do not have permission to do that.");
         return true;
     }
 

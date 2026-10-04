@@ -12,19 +12,29 @@ import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import dev.customjukebox.ui.Text;
+
+import java.time.Duration;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 
 /**
  * Enforces the source limit and owns personal and sign-backed NoteBlockAPI players.
  */
-public final class PlaybackManager {
+public final class PlaybackManager implements Listener {
     private static final Sound[] VANILLA_INSTRUMENTS = {
             Sound.BLOCK_NOTE_BLOCK_HARP, Sound.BLOCK_NOTE_BLOCK_BASS,
             Sound.BLOCK_NOTE_BLOCK_BASEDRUM, Sound.BLOCK_NOTE_BLOCK_SNARE,
@@ -68,21 +78,32 @@ public final class PlaybackManager {
         }
     }
 
-    public boolean playPersonal(Player player, SongMetadata metadata, int volume) {
-        PersonalState state = personal.computeIfAbsent(player.getUniqueId(), ignored -> new PersonalState());
+    public boolean playPersonal(Player player, SongMetadata metadata) {
+        PersonalState state = state(player.getUniqueId());
         state.queue.clear();
-        return startPersonal(player, metadata, volume, state);
+        return startPersonal(player, metadata, state);
     }
 
-    private boolean startPersonal(Player player, SongMetadata metadata, int volume, PersonalState state) {
+    /** Replaces the queue with {@code songs} (optionally shuffled) and starts the first one. */
+    public boolean playAll(Player player, List<SongMetadata> songs, boolean shuffle) {
+        if (songs.isEmpty()) return false;
+        List<SongMetadata> order = new ArrayList<>(songs);
+        if (shuffle) Collections.shuffle(order);
+        PersonalState state = state(player.getUniqueId());
+        state.queue.clear();
+        state.queue.addAll(order);
+        return startPersonal(player, state.queue.removeFirst(), state);
+    }
+
+    private boolean startPersonal(Player player, SongMetadata metadata, PersonalState state) {
         String key = personalKey(player.getUniqueId());
         stop(key);
         if (!hasCapacity()) return false;
         state.current = metadata;
         try {
-            Playback playback = new Playback(key, plugin.library().load(metadata), volume, state.loop,
+            Playback playback = new Playback(key, plugin.library().load(metadata), state.volume, state.loop,
                     tick -> playPlayer(player.getUniqueId(), tick), () -> advance(player.getUniqueId()),
-                    () -> showPersonalStatus(player.getUniqueId(), metadata));
+                    () -> showPersonalStatus(player.getUniqueId()));
             active.put(key, playback);
             playback.runTaskTimer(plugin, 0L, 1L);
             return true;
@@ -92,10 +113,8 @@ public final class PlaybackManager {
         }
     }
 
-    public void queue(UUID player, Iterable<SongMetadata> songs) {
-        PersonalState state = personal.computeIfAbsent(player, ignored -> new PersonalState());
-        state.queue.clear();
-        songs.forEach(state.queue::addLast);
+    public void enqueue(UUID player, SongMetadata song) {
+        state(player).queue.addLast(song);
     }
 
     public void skip(UUID player) {
@@ -108,7 +127,7 @@ public final class PlaybackManager {
         Player player = plugin.getServer().getPlayer(playerId);
         if (state == null || player == null || state.queue.isEmpty()) return;
         SongMetadata next = state.queue.removeFirst();
-        startPersonal(player, next, plugin.settings().personalVolume(), state);
+        startPersonal(player, next, state);
     }
 
     public boolean togglePause(UUID player) {
@@ -119,7 +138,7 @@ public final class PlaybackManager {
     }
 
     public boolean togglePersonalLoop(UUID player) {
-        PersonalState state = personal.computeIfAbsent(player, ignored -> new PersonalState());
+        PersonalState state = state(player);
         state.loop = !state.loop;
         Playback playback = active.get(personalKey(player));
         if (playback != null) playback.loop = state.loop;
@@ -127,7 +146,35 @@ public final class PlaybackManager {
     }
 
     public boolean personalLoop(UUID player) {
-        return personal.getOrDefault(player, new PersonalState()).loop;
+        PersonalState state = personal.get(player);
+        return state != null && state.loop;
+    }
+
+    public int personalVolume(UUID player) {
+        PersonalState state = personal.get(player);
+        return state == null ? plugin.settings().personalVolume() : state.volume;
+    }
+
+    /** Sets the player's personal volume (clamped to the configured range) and applies it immediately. */
+    public int setPersonalVolume(UUID player, int volume) {
+        PersonalState state = state(player);
+        state.volume = plugin.settings().clampVolume(volume);
+        Playback playback = active.get(personalKey(player));
+        if (playback != null) playback.sourceVolume = state.volume;
+        return state.volume;
+    }
+
+    public int queuedCount(UUID player) {
+        PersonalState state = personal.get(player);
+        return state == null ? 0 : state.queue.size();
+    }
+
+    public Optional<NowPlaying> nowPlaying(UUID player) {
+        PersonalState state = personal.get(player);
+        Playback playback = active.get(personalKey(player));
+        if (state == null || playback == null || state.current == null) return Optional.empty();
+        return Optional.of(new NowPlaying(state.current, playback.elapsed(), playback.paused, playback.loop,
+                state.queue.size()));
     }
 
     public boolean isPaused(UUID player) {
@@ -145,6 +192,12 @@ public final class PlaybackManager {
         if (state != null) state.queue.clear();
     }
 
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        stopPersonal(event.getPlayer().getUniqueId());
+        personal.remove(event.getPlayer().getUniqueId());
+    }
+
     public void stop(String key) {
         Playback playback = active.remove(key);
         if (playback != null) playback.cancelSilently();
@@ -156,6 +209,10 @@ public final class PlaybackManager {
 
     private boolean hasCapacity() { return active.size() < plugin.settings().maxActiveSources(); }
     private static String personalKey(UUID id) { return "player:" + id; }
+
+    private PersonalState state(UUID player) {
+        return personal.computeIfAbsent(player, ignored -> new PersonalState(plugin.settings().personalVolume()));
+    }
 
     private static void playWorld(Location source, NoteTick tick) {
         World world = source.getWorld();
@@ -172,18 +229,22 @@ public final class PlaybackManager {
         }
     }
 
-    private void showPersonalStatus(UUID playerId, SongMetadata metadata) {
+    private void showPersonalStatus(UUID playerId) {
         Player player = plugin.getServer().getPlayer(playerId);
-        if (player != null) {
-            player.sendActionBar(Component.text("Playing Song: ", NamedTextColor.GRAY)
-                    .append(Component.text(metadata.displayTitle(), NamedTextColor.GOLD)));
-        }
+        NowPlaying now = nowPlaying(playerId).orElse(null);
+        if (player == null || now == null) return;
+        Component status = Component.text(now.paused() ? "⏸ " : "♪ ", now.paused() ? NamedTextColor.YELLOW : NamedTextColor.GOLD)
+                .append(Component.text(now.song().displayTitle(), now.paused() ? NamedTextColor.GRAY : NamedTextColor.GOLD))
+                .append(Component.text("  " + Text.duration(now.elapsed()) + " / " + Text.duration(now.song().duration()),
+                        NamedTextColor.DARK_GRAY));
+        if (now.paused()) status = status.append(Component.text("  paused", NamedTextColor.YELLOW));
+        player.sendActionBar(status);
     }
 
     private final class Playback extends BukkitRunnable {
         private final String key;
         private final Song song;
-        private final int sourceVolume;
+        private int sourceVolume;
         private final Consumer<NoteTick> output;
         private final Runnable onEnd;
         private final Runnable status;
@@ -205,8 +266,8 @@ public final class PlaybackManager {
         }
 
         @Override public void run() {
-            if (paused) return;
             if (statusTick++ % 20 == 0) status.run();
+            if (paused) return;
             songTickAccumulator += song.getSpeed() / 20.0;
             while (songTickAccumulator >= 1.0) {
                 songTickAccumulator -= 1.0;
@@ -239,6 +300,12 @@ public final class PlaybackManager {
             }
         }
 
+        private Duration elapsed() {
+            float speed = song.getSpeed();
+            if (speed <= 0 || songTick <= 0) return Duration.ZERO;
+            return Duration.ofMillis(Math.round(songTick * 1000.0 / speed));
+        }
+
         private void cancelSilently() {
             cancel();
         }
@@ -246,9 +313,15 @@ public final class PlaybackManager {
 
     private record NoteTick(Sound sound, float volume, float pitch) { }
 
+    /** Snapshot of a player's personal playback for status displays. */
+    public record NowPlaying(SongMetadata song, Duration elapsed, boolean paused, boolean loop, int queued) { }
+
     private static final class PersonalState {
         private final Deque<SongMetadata> queue = new ArrayDeque<>();
         private SongMetadata current;
         private boolean loop;
+        private int volume;
+
+        private PersonalState(int volume) { this.volume = volume; }
     }
 }

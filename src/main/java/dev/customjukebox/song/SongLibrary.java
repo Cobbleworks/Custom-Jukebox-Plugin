@@ -110,6 +110,15 @@ public final class SongLibrary {
                 .sorted(Comparator.comparing(SongMetadata::id)).toList();
     }
 
+    /** Lists every song in {@code folder} and its subfolders, sorted by path. */
+    public List<SongMetadata> recursiveFolder(String folder) {
+        String normalized = folder.replace('\\', '/');
+        String prefix = normalized + "/";
+        return songs.values().stream()
+                .filter(song -> normalized.isEmpty() || song.folder().equals(normalized) || song.folder().startsWith(prefix))
+                .sorted(Comparator.comparing(SongMetadata::id)).toList();
+    }
+
     public List<String> childFolders(String folder) {
         String normalized = folder.replace('\\', '/');
         String prefix = normalized.isEmpty() ? "" : normalized + "/";

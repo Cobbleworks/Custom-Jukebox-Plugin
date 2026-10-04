@@ -18,6 +18,8 @@ Custom Jukebox indexes `.nbs` songs only when needed and presents them through a
 - **Personal playback:** Play or stop a song without creating a world jukebox
 - **Jukebox signs:** Store the selected song, volume, looping, and redstone mode directly on a sign
 - **Three redstone modes:** Toggle, pulse, or ignore external redstone power
+- **Area redstone triggers:** Levers, buttons, plates, and dust near a sign trigger it, so one switch can drive several signs
+- **Now-playing controls:** Progress bar, pause/resume, queue, shuffle, loop, and per-player volume in the browser
 - **Registered-sign index:** List configured signs and their locations with an admin command
 - **Lazy song loading:** Scan metadata without keeping every complete song in memory
 - **Action-bar status:** Show the active personal song while it is playing
@@ -99,6 +101,7 @@ The generated `config.yml` controls playback volume and source limits.
 | `volume.default` | Initial volume for a new jukebox sign | `3` |
 | `personal-default-volume` | Initial personal playback volume | `3` |
 | `max-active-sources` | Combined limit for sign, record, and personal playback sources | `20` |
+| `redstone.trigger-radius` | Blocks around a sign in which redstone activity triggers it (`0`-`8`) | `2` |
 | `log-invalid-songs` | Log malformed or unreadable `.nbs` files during scans | `true` |
 
 Values above `1` use Minecraft's extended audible radius behavior. A volume of `0` is silent.
@@ -109,9 +112,22 @@ Values above `1` use Minecraft's extended audible radius behavior. A volume of `
 
 Songs are stored below `plugins/CustomJukebox/songs/`. The plugin indexes the library and opens folders as inventory screens. `/jukebox reload` refreshes the index after files are added, replaced, or removed.
 
+The browser shows the current folder in its title. The bottom row holds the controls:
+
+| Control | Action |
+|---------|--------|
+| Back | Left-click goes up one folder, right-click returns to all songs |
+| Volume | Left-click is louder, right-click is quieter; applies immediately |
+| Play this folder | Left-click plays the folder and its subfolders in order, right-click shuffles |
+| Now playing | Shows title, progress and state; click to pause or resume |
+| Next song | Skips to the next queued song |
+| Loop / Stop | Repeats the current song / stops playback and clears the queue |
+
+Clicking a song plays it, shift-clicking adds it to the queue, and clicking the playing song pauses it.
+
 ### **Jukebox Signs**
 
-Write `[jukebox]` on the first line of a sign. The configuration screen opens after the sign editor closes, allowing the creator to select a song, volume, looping option, and redstone mode. Right-clicking a configured sign opens its controls; sneak-right-click uses normal sign editing.
+Write `[jukebox]` on the first line of a sign. The configuration screen opens after the sign editor closes, allowing the creator to select a song, volume, looping option, and redstone mode. Changes are applied with **Save & close**; **Test playback** saves and plays the song at the sign. Right-clicking a configured sign opens its controls and starts in the folder of its current song; sneak-right-click uses normal sign editing. Players without `customjukebox.sign.place` see which song the sign plays instead.
 
 The sign stores its own configuration using Paper's persistent data container. `signs.yml` maintains a separate location index used by `/jukebox list-signs`.
 
@@ -122,6 +138,8 @@ The sign stores its own configuration using Paper's persistent data container. `
 | `Toggle` | Plays while the sign is powered and stops when power is removed |
 | `Pulse` | Starts playback on a rising redstone edge |
 | `Ignore` | Ignores redstone and responds only through the GUI |
+
+A sign counts as powered when any block within `redstone.trigger-radius` blocks of it (a cube around the sign) is powered or is an active redstone component, such as a flipped lever, a pressed button or plate, or lit dust. With the default radius of `2`, a lever beside the sign, dust ending next to it, or a button on the far side of the wall it hangs on all work. Every sign in range of the same switch reacts, so one lever can start several signs. Set the radius to `0` to react only when the sign block itself is powered.
 
 ### **Custom Records**
 
@@ -138,7 +156,7 @@ Insert the record into an ordinary jukebox to play the bound NBS song at the con
 | `/jukebox stop` | Stop personal playback |
 | `/jukebox disc <player> <path or title>` | Create a persistent physical record for an indexed song |
 | `/jukebox reload` | Rescan the song library |
-| `/jukebox list-signs` | List registered jukebox signs and their locations |
+| `/jukebox list-signs` | List registered jukebox signs with their song; click an entry to prepare a teleport command |
 
 ## **Permissions**
 

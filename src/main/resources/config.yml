@@ -5,11 +5,20 @@ volume:
   max: 10
   default: 3
 
-# Personal playback is heard only by the invoking player.
+# Personal playback is heard only by the invoking player. Players can change
+# their own volume in the /jukebox play browser.
 personal-default-volume: 3
 
-# Includes both sign and personal sources.
+# Includes sign, record, and personal sources.
 max-active-sources: 20
+
+redstone:
+  # A jukebox sign reacts to redstone activity within this many blocks
+  # (a cube around the sign). 0 only reacts when the sign itself is powered,
+  # 1 also covers the block the sign hangs on and adjacent levers or dust,
+  # 2 also reaches buttons on the far side of the supporting block.
+  # Clamped to 0-8.
+  trigger-radius: 2
 
 # When true, malformed/unreadable NBS files are logged during scans.
 log-invalid-songs: true
