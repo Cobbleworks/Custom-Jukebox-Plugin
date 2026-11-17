@@ -34,6 +34,9 @@ Notable changes to Custom Jukebox are documented in GitHub release notes.
 - Players without `customjukebox.sign.place` can no longer change a jukebox sign's text or settings.
 - Sign physics checks no longer read a block state for every physics update.
 - Configured signs missing from `signs.yml` are registered again when their chunk loads.
+- Custom records no longer start the vanilla disc song alongside their NBS song. Vanilla songs that kept playing after the jukebox was broken or the record ejected, and that stacked up on repeated insertion, are gone. Records created earlier are converted when they are inserted or their jukebox loads.
+- Custom records inserted from the off hand play their NBS song instead of the vanilla disc.
+- Custom record playback stops when its jukebox disappears or loses its record without an event, for example through commands or other plugins.
 
 ### Security
 
